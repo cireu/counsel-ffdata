@@ -1,0 +1,50 @@
+#+TITLE: Access your Firefox bookmarks and history with ivy interface
+
+* Introduction
+
+=counsel-ffdata= allow you to access your Firefox user data (currently bookmarks
+and history) with ivy interface in Emacs.
+
+[[file:screenshot/access_bookmarks.png]]
+
+[[file:screenshot/access_history.png]]
+
+* Quick Start
+
+** Install sqlite3 binary
+
+For most \*nix distribution, you can simply install it with your system package
+manager. For example,
+
+#+BEGIN_SRC sh
+sudo pacman -S sqlite
+#+END_SRC
+
+#+BEGIN_SRC sh
+sudo apt-get install sqlite3
+#+END_SRC
+
+For Windows system, you can use [[https://github.com/chocolatey/choco][choco]].
+
+#+BEGIN_SRC sh
+choco install sqlite
+#+END_SRC
+
+** Download plugin
+
+=counsel-ffdata= is depend on [[https://github.com/abo-abo/swiper][ivy]] and [[https://github.com/skeeto/emacsql][emacsql]], you need to install them
+manually.
+
+Clone this repo, Write following Elisp in your =.emacs= file.
+
+#+BEGIN_SRC elisp
+(add-to-list 'load-path "/path/to/plugin")
+(require 'counsel-ffdata)
+(global-set-key "C-c F h" #'counsel-ffdata-firefox-history)
+(global-set-key "C-c F b" #'counsel-ffdata-firefox-bookmarks)
+#+END_SRC
+
+
+* Contribution
+
+Issue reporting and PR are welcome.

@@ -5,8 +5,8 @@
 ;; Author: Zhu Zihao all_but_last@163.com
 ;; URL: https://github.com/cireu/counsel-ffdata
 ;; Version: 0.0.1
-;; Package-Requires: ((emacs "25.2") (ivy "") (counsel "") (emacsql ""))
-;; Keywords: firefox, browser
+;; Package-Requires: ((emacs "25.1") (counsel "0.9.0") (emacsql "3.0.0"))
+;; Keywords: firefox, browser, counsel
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -32,14 +32,30 @@
 (require 'cl-lib)
 (require 'ivy)
 (require 'counsel)
-(require 'emacsql)
+(require 'emacsql-compiler)
 (require 'org-faces)                    ;For face `org-date'
 
 (eval-when-compile
-  (require 'pcase))                     ;`pcase-let' and `pcase-lambda'
+  (require 'pcase))                     ;`pcase-let*' and `pcase-lambda'
 
-(defvar counsel-ffdata-database-path
-  (car (file-expand-wildcards "~/.mozilla/firefox/*.default/places.sqlite")))
+;;; Customize
+
+(defgroup counsel-ffdata ()
+  "Access Firefox bookmarks/history with ivy interface."
+  :prefix "counsel-ffdata-"
+  :group 'counsel)
+
+(defcustom counsel-ffdata-database-path
+  (when (memq system-type '(gnu gnu/linux gnu/kfreebsd))
+    (car (file-expand-wildcards "~/.mozilla/firefox/*.default/places.sqlite")))
+  "The path to Firefox's user database.
+
+We try to detect it on *nix system. If you're using Windows/Mac or
+auto-detection don't work for you, you need to specify it manually."
+  :type 'string
+  :group 'counsel-ffdata)
+
+;;; Database Access
 
 (defvar counsel-ffdata--temp-db-path
   (expand-file-name (make-temp-name "ffdb") temporary-file-directory))
@@ -47,8 +63,13 @@
 (defvar counsel-ffdata--cache (make-hash-table :test #'equal))
 
 (defun counsel-ffdata--ensure-db! (&optional force-update?)
+  "Ensure Firefox database by copying it to `temporary-file-directory' with a temp name.
+
+If FORCE-UPDATE? is non-nil and database was copied, delete it first."
   (cl-flet ((update-db!
              ()
+             ;; The copy is necessary because our SQL query action
+             ;; may conflicts with running Firefox.
              (copy-file counsel-ffdata-database-path
                         counsel-ffdata--temp-db-path)
              (clrhash counsel-ffdata--cache)))
@@ -63,6 +84,9 @@
       nil)))
 
 (defun counsel-ffdata--parse-sql-result ()
+  "Parse the output from `sqlite3' in ascii mode.
+
+Return a list like ((COL1 COL2 ...) ...)"
   (goto-char (point-min))
   (let (result)
     (while (re-search-forward (rx (group (+? any)) (eval (kbd "C-^"))) nil t)
@@ -71,32 +95,89 @@
                       result))))
 
 (defsubst counsel-ffdata--prepare-sql-stmt (sql &rest args)
+  "Format S-exp SQL DSL to a real SQL query statement with ARGS."
   (concat (apply #'emacsql-format (emacsql-prepare sql) args) ";"))
 
+;;; Candidates
 
 (cl-defun counsel-ffdata--prepare-candidates! (&key
-                                              (caller this-command)
-                                              query-stmt
-                                              force-update?
-                                              transformer)
+                                               (caller this-command)
+                                               query-stmt
+                                               force-update?
+                                               transformer)
+  "Prepare candidates from `counsel-ffdata-*' completions.
+
+Return a list like ((COL1 COL2 ...) ...), by parsing the result queried by
+QUERY-STMT.
+
+If TRANSFORMER is supplied, it will be mapped over the parsed result.
+
+CALLER is a symbol is a symbol to uniquely identify the caller, to determined
+the key in hash cache.
+
+When FORCE-UPDATE? is non-nil, force update database and cache before preparing
+candidates.
+"
   (counsel-require-program "sqlite3")
   (counsel-ffdata--ensure-db! force-update?)
   (or
    (if force-update? nil (gethash caller counsel-ffdata--cache nil))
-   (let* ((db-path counsel-ffdata--temp-db-path)
-          (query-cmd (counsel-ffdata--prepare-sql-stmt query-stmt)))
-     (with-temp-buffer
-       (let ((errno (call-process "sqlite3" nil (current-buffer) nil
-                                  "--ascii" db-path query-cmd))
-             result)
-         (if (= errno 0)
-             (setq result (counsel-ffdata--parse-sql-result))
-           (error "SQLite exited with error code %d" errno))
-         (when (functionp transformer)
-           (cl-callf2 mapcar transformer result))
-         (setf (gethash caller counsel-ffdata--cache) result))))))
+   (with-temp-buffer
+     (let* ((db-path counsel-ffdata--temp-db-path)
+            (query-cmd (counsel-ffdata--prepare-sql-stmt query-stmt))
+            (errno (call-process "sqlite3" nil (current-buffer) nil
+                                 "--ascii" db-path query-cmd))
+            result)
+       (if (= errno 0)
+           (setq result (counsel-ffdata--parse-sql-result))
+         (error "SQLite exited with error code %d" errno))
+       (when (functionp transformer)
+         (cl-callf2 mapcar transformer result))
+       (setf (gethash caller counsel-ffdata--cache) result)))))
 
+(defun counsel-ffdata--history-cands-transformer (cands)
+  "Transform raw CANDS to ivy compatible candidates"
+  (pcase-let* (((and whole (let `(,title ,url ,date-in-ms) whole))
+                cands)
+               (date (/ (string-to-number date-in-ms) 1000000))
+               (readable-date (format-time-string "%Y-%m-%d %H:%M %a" date)))
+    ;; HACK: Use text property to carry original source
+    ;; Useful for display transformer.
+    (cons (propertize (format "%s %s %s"
+                              title
+                              (propertize url 'face 'link)
+                              (propertize readable-date 'face 'org-date))
+                      'counsel-ffdata-orig-source (list title url readable-date))
+          whole)))
+
+;;; Display transformer
+
+(defun counsel-ffdata--history-display-transformer (text)
+  "Transform TEXT to real displayed text."
+  (pcase-let ((`(,title ,url ,readable-date)
+               (get-text-property 0 'counsel-ffdata-orig-source text)))
+    (format "%s %s %s"
+            title
+            (propertize (truncate-string-to-width url 25 nil nil "...")
+                        'face 'link)
+            (propertize readable-date 'face 'org-date))))
+
+(defun counsel-ffdata--bookmarks-display-transformer (text)
+  "Transform TEXT to real displayed text."
+  (pcase-let ((`(,title ,url)
+               (get-text-property 0 'counsel-ffdata-orig-source text)))
+    (format "%s %s"
+            title
+            (propertize (truncate-string-to-width url 25 nil nil "...")
+                        'face 'link))))
+
+;;; Interactive functions
+
+;;;###autoload
 (defun counsel-ffdata-firefox-bookmarks (&optional force-update?)
+  "Search your Firefox bookmarks.
+
+If FORCE-UPDATE? is non-nil, force update database and cache before searching."
   (interactive "P")
   (ivy-read "Firefox Bookmarks: "
             (counsel-ffdata--prepare-candidates!
@@ -107,8 +188,10 @@
              :force-update? force-update?
              :caller 'counsel-ffdata-firefox-bookmarks
              :transformer (pcase-lambda ((and whole (let `(,title ,url) whole)))
-                            (cons (format "%s %s"
-                                          title (propertize url 'face 'link))
+                            ;; HACK: Use text property to carry original source
+                            ;; Useful for display transformer.
+                            (cons (propertize (format "%s %s" title url)
+                                              'counsel-ffdata-orig-source whole)
                                   whole)))
             :history 'counsel-ffdata-firefox-bookmarks
             :action (lambda (it) (browse-url (cl-third it)))
@@ -116,26 +199,18 @@
             :require-match t))
 
 ;;;###autoload
-(defun counsel-ffdata--history-cands-transformer (cands)
-  (pcase-let* (((and whole (let `(,title ,url ,date-in-ms) whole))
-                cands)
-               (date (/ (string-to-number date-in-ms) 1000000))
-               (readable-date (format-time-string "%Y-%m-%d %H:%M %a" date)))
-    (cons (format "%s %s %s"
-                  title
-                  (propertize url 'face 'link)
-                  (propertize readable-date 'face 'org-date))
-          whole)))
-
-;;;###autoload
 (defun counsel-ffdata-firefox-history (&optional force-update?)
+  "Search your Firefox history.
+
+If FORCE-UPDATE? is non-nil, force update database and cache before searching."
   (interactive "P")
   (ivy-read "Firefox History: "
             (counsel-ffdata--prepare-candidates!
              :query-stmt [:select [p:title p:url h:visit_date]
                           :from (as moz_historyvisits h)
                           :inner-join (as moz_places p)
-                          :where (= h:place_id p:id)]
+                          :where (= h:place_id p:id)
+                          :order-by (desc h:visit_date)]
              :force-update? force-update?
              :caller 'counsel-ffdata-firefox-history
              :transformer #'counsel-ffdata--history-cands-transformer)
@@ -145,4 +220,11 @@
             :require-match t))
 
 (provide 'counsel-ffdata)
+
+(ivy-set-display-transformer #'counsel-ffdata-firefox-history
+                             #'counsel-ffdata--history-display-transformer)
+
+(ivy-set-display-transformer #'counsel-ffdata-firefox-bookmarks
+                             #'counsel-ffdata--bookmarks-display-transformer)
+
 ;;; counsel-ffdata.el ends here
