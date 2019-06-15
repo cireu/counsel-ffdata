@@ -1,11 +1,11 @@
-;;; counsel-ffdata.el  --- Use ivy to access firefox data  -*- lexical-binding: t -*-
+;;; counsel-ffdata.el --- Use ivy to access firefox data  -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2019 Zhu Zihao
 
-;; Author: Zhu Zihao all_but_last@163.com
+;; Author: Zhu Zihao <all_but_last@163.com>
 ;; URL: https://github.com/cireu/counsel-ffdata
 ;; Version: 0.0.1
-;; Package-Requires: ((emacs "25.1") (counsel "0.9.0") (emacsql "3.0.0"))
+;; Package-Requires: ((emacs "25.1") (counsel "0.11.0") (emacsql "3.0.0"))
 ;; Keywords: firefox, browser, counsel
 
 ;; This file is NOT part of GNU Emacs.
@@ -63,7 +63,7 @@ auto-detection don't work for you, you need to specify it manually."
 (defvar counsel-ffdata--cache (make-hash-table :test #'equal))
 
 (defun counsel-ffdata--ensure-db! (&optional force-update?)
-  "Ensure Firefox database by copying it to `temporary-file-directory' with a temp name.
+  "Ensure database by copying it to system temp file directory with a temp name.
 
 If FORCE-UPDATE? is non-nil and database was copied, delete it first."
   (cl-flet ((update-db!
@@ -136,7 +136,7 @@ candidates.
        (setf (gethash caller counsel-ffdata--cache) result)))))
 
 (defun counsel-ffdata--history-cands-transformer (cands)
-  "Transform raw CANDS to ivy compatible candidates"
+  "Transform raw CANDS to ivy compatible candidates."
   (pcase-let* (((and whole (let `(,title ,url ,date-in-ms) whole))
                 cands)
                (date (/ (string-to-number date-in-ms) 1000000))
