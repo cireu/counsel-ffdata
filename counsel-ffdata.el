@@ -6,7 +6,7 @@
 ;; URL: https://github.com/cireu/counsel-ffdata
 ;; Version: 0.0.1
 ;; Package-Requires: ((emacs "25.1") (counsel "0.11.0") (emacsql "3.0.0"))
-;; Keywords: firefox, browser, counsel
+;; Keywords: convenience, tools, matching
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -25,7 +25,12 @@
 
 ;;; Commentary:
 
+;; Call one of interactive function in this file to complete
+;; the corresponding thing using `ivy'.
 ;;
+;; Current available:
+;; - Firefox Bookmarks.
+;; - Firefox History visits.
 
 ;;; Code:
 
@@ -52,8 +57,8 @@
 
 We try to detect it on *nix system. If you're using Windows/Mac or
 auto-detection don't work for you, you need to specify it manually."
-  :type 'string
-  :group 'counsel-ffdata)
+  :type '(choice (const :tag "Unset" nil)
+                 string))
 
 ;;; Database Access
 
