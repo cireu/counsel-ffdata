@@ -1,5 +1,7 @@
 #+TITLE: Access your Firefox bookmarks and history with ivy interface
 
+[[http://melpa.org/#/counsel-ffdata][file:http://melpa.org/packages/counsel-ffdata-badge.svg]]
+
 * Introduction
 
 =counsel-ffdata= allow you to access your Firefox user data (currently bookmarks
@@ -13,7 +15,7 @@ and history) with ivy interface in Emacs.
 
 ** Install sqlite3 binary
 
-For most \*nix distribution, you can simply install it with your system package
+For most *nix distribution, you can simply install it with your system package
 manager. For example,
 
 #+BEGIN_SRC sh
@@ -30,7 +32,17 @@ For Windows system, you can use [[https://github.com/chocolatey/choco][choco]].
 choco install sqlite
 #+END_SRC
 
-** Download plugin
+** Install plugin
+
+*** Install from Melpa
+
+=counsel-ffdata= is currently available on melpa, so you can install it with
+
+#+BEGIN_SRC 
+M-x package-install RET counsel-ffdata RET
+#+END_SRC
+
+*** Install manually
 
 =counsel-ffdata= is depend on [[https://github.com/abo-abo/swiper][ivy]] and [[https://github.com/skeeto/emacsql][emacsql]], you need to install them
 manually.
@@ -44,6 +56,18 @@ Clone this repo, Write following Elisp in your =.emacs= file.
 (global-set-key "C-c F b" #'counsel-ffdata-firefox-bookmarks)
 #+END_SRC
 
+* Customization
+
+Bind the functions below to your favourite key.
+
+| Functions                          | Usage                         |
+| =counsel-ffdata-firefox-bookmarks= | Access your Firefox Bookmarks |
+| =counsel-ffdata-firefox-history=   | Access your Firefox History   |
+
+=counsel-ffdata= will guess the path of your Firefox database.
+However, but if you use different Firefox profile, you may get unexpected
+behaviour. Customize =counsel-ffdata-database-path= to specify your path to 
+firefox database.
 
 * Contribution
 

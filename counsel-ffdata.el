@@ -51,14 +51,20 @@
   :group 'counsel)
 
 (defcustom counsel-ffdata-database-path
-  (when (memq system-type '(gnu gnu/linux gnu/kfreebsd))
-    (car (file-expand-wildcards "~/.mozilla/firefox/*.default/places.sqlite")))
+  (cl-case system-type
+    ((gnu gnu/linux gnu/kfreebsd)
+     (car (file-expand-wildcards "~/.mozilla/firefox/*.default/places.sqlite")))
+    (windows-nt
+     (car (file-expand-wildcards
+           (expand-file-name "Mozilla/Firefox/Profiles/*/places.sqlite"
+                             (getenv "APPDATA"))))))
+
   "The path to Firefox's user database.
 
 We try to detect it on *nix system. If you're using Windows/Mac or
 auto-detection don't work for you, you need to specify it manually."
   :type '(choice (const :tag "Unset" nil)
-                 string))
+          string))
 
 ;;; Database Access
 
