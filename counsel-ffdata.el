@@ -77,13 +77,12 @@ auto-detection don't work for you, you need to specify it manually."
   "Ensure database by copying it to system temp file directory with a temp name.
 
 If FORCE-UPDATE? is non-nil and database was copied, delete it first."
-  (cl-flet ((update-db!
-             ()
-             ;; The copy is necessary because our SQL query action
-             ;; may conflicts with running Firefox.
-             (copy-file counsel-ffdata-database-path
-                        counsel-ffdata--temp-db-path)
-             (clrhash counsel-ffdata--cache)))
+  (cl-flet ((update-db! ()
+              ;; The copy is necessary because our SQL query action
+              ;; may conflicts with running Firefox.
+              (copy-file counsel-ffdata-database-path
+                         counsel-ffdata--temp-db-path)
+              (clrhash counsel-ffdata--cache)))
     (let* ((path counsel-ffdata--temp-db-path))
       (condition-case e
           (if (file-exists-p path)
