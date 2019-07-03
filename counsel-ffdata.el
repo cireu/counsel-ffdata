@@ -86,13 +86,11 @@ If FORCE-UPDATE? is non-nil and database was copied, delete it first."
                          counsel-ffdata--temp-db-path)
               (clrhash counsel-ffdata--cache)))
     (let* ((path counsel-ffdata--temp-db-path))
-      (condition-case e
-          (if (file-exists-p path)
-              (when force-update?
-                (delete-file path)
-                (update-db!))
+      (if (file-exists-p path)
+          (when force-update?
+            (delete-file path)
             (update-db!))
-        (error "Failed to ensure firefox database: %s" e))
+        (update-db!))
       nil)))
 
 (defun counsel-ffdata--parse-sql-result ()
