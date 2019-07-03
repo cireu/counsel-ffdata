@@ -53,7 +53,9 @@
 (defcustom counsel-ffdata-database-path
   (cl-case system-type
     ((gnu gnu/linux gnu/kfreebsd)
-     (car (file-expand-wildcards "~/.mozilla/firefox/*.default/places.sqlite")))
+     (expand-file-name
+      (car (file-expand-wildcards
+            "~/.mozilla/firefox/*.default/places.sqlite"))))
     (windows-nt
      (car (file-expand-wildcards
            (expand-file-name "Mozilla/Firefox/Profiles/*/places.sqlite"
@@ -111,10 +113,10 @@ Return a list like ((COL1 COL2 ...) ...)"
 ;;; Candidates
 
 (cl-defun counsel-ffdata--prepare-candidates! (&key
-                                               (caller this-command)
-                                               query-stmt
-                                               force-update?
-                                               transformer)
+                                                 (caller this-command)
+                                                 query-stmt
+                                                 force-update?
+                                                 transformer)
   "Prepare candidates from `counsel-ffdata-*' completions.
 
 Return a list like ((COL1 COL2 ...) ...), by parsing the result queried by
@@ -122,8 +124,8 @@ QUERY-STMT.
 
 If TRANSFORMER is supplied, it will be mapped over the parsed result.
 
-CALLER is a symbol is a symbol to uniquely identify the caller, to determined
-the key in hash cache.
+CALLER is a symbol to uniquely identify the caller, to determined the key in
+hash cache.
 
 When FORCE-UPDATE? is non-nil, force update database and cache before preparing
 candidates.
@@ -132,18 +134,22 @@ candidates.
   (counsel-ffdata--ensure-db! force-update?)
   (or
    (if force-update? nil (gethash caller counsel-ffdata--cache nil))
-   (with-temp-buffer
-     (let* ((db-path counsel-ffdata--temp-db-path)
-            (query-cmd (counsel-ffdata--prepare-sql-stmt query-stmt))
-            (errno (call-process "sqlite3" nil (current-buffer) nil
-                                 "--ascii" db-path query-cmd))
-            result)
-       (if (= errno 0)
-           (setq result (counsel-ffdata--parse-sql-result))
-         (error "SQLite exited with error code %d" errno))
-       (when (functionp transformer)
-         (cl-callf2 mapcar transformer result))
-       (setf (gethash caller counsel-ffdata--cache) result)))))
+   (let ((buf (generate-new-buffer "*counsel-ffdata sqlite*")))
+     (with-current-buffer buf
+       (let* ((db-path counsel-ffdata--temp-db-path)
+              (query-cmd (counsel-ffdata--prepare-sql-stmt query-stmt))
+              (errno (call-process "sqlite3" nil (current-buffer) nil
+                                   "--ascii" db-path query-cmd))
+              result)
+         (if (= errno 0)
+             (unwind-protect
+                  (setq result (counsel-ffdata--parse-sql-result))
+               (kill-buffer buf))
+           (pop-to-buffer buf)
+           (error "SQLite exited with error code %d" errno))
+         (when (functionp transformer)
+           (cl-callf2 mapcar transformer result))
+         (setf (gethash caller counsel-ffdata--cache) result))))))
 
 (defun counsel-ffdata--history-cands-transformer (cands)
   "Transform raw CANDS to ivy compatible candidates."
