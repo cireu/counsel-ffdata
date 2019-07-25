@@ -241,4 +241,9 @@ If FORCE-UPDATE? is non-nil, force update database and cache before searching."
 (ivy-set-display-transformer #'counsel-ffdata-firefox-bookmarks
                              #'counsel-ffdata--bookmarks-display-transformer)
 
+(dolist (it '(counsel-ffdata-firefox-history
+              counsel-ffdata-firefox-bookmarks))
+  (ivy-set-actions it
+                   '(("E" (lambda (it) (eww (cl-third it))) "Open with EWW"))))
+
 ;;; counsel-ffdata.el ends here
