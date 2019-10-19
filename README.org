@@ -72,3 +72,12 @@ firefox database.
 * Contribution
 
 Issue reporting and PR are welcome.
+* Support
+
+如果你觉得我的作品为你带来便利, 欢迎使用爱发电支持我
+
+https://afdian.net/@cireu
+
+If you like my work, you can support me via Patreon
+
+https://www.patreon.com/user?u=24945220
