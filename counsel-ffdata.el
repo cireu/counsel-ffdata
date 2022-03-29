@@ -55,7 +55,7 @@
     ((gnu gnu/linux gnu/kfreebsd)
      (expand-file-name
       (car (file-expand-wildcards
-            "~/.mozilla/firefox/*.default/places.sqlite"))))
+            "~/.mozilla/firefox/*default/places.sqlite"))))
     (windows-nt
      (car (file-expand-wildcards
            (expand-file-name "Mozilla/Firefox/Profiles/*/places.sqlite"
